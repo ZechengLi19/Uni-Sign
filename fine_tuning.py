@@ -35,18 +35,6 @@ def main(args):
                                  sampler=train_sampler, 
                                  pin_memory=args.pin_mem,
                                  drop_last=True)
-    
-    dev_data = S2T_Dataset(path=dev_label_paths[args.dataset], 
-                           args=args, phase='dev')
-    print(dev_data)
-    # dev_sampler = torch.utils.data.distributed.DistributedSampler(dev_data,shuffle=False)
-    dev_sampler = torch.utils.data.SequentialSampler(dev_data)
-    dev_dataloader = DataLoader(dev_data,
-                                batch_size=args.batch_size,
-                                num_workers=args.num_workers, 
-                                collate_fn=dev_data.collate_fn,
-                                sampler=dev_sampler, 
-                                pin_memory=args.pin_mem)
         
     test_data = S2T_Dataset(path=test_label_paths[args.dataset], 
                             args=args, phase='test')
@@ -60,10 +48,24 @@ def main(args):
                                  sampler=test_sampler, 
                                  pin_memory=args.pin_mem)
 
+    if "How2Sign" not in args.dataset:
+        dev_data = S2T_Dataset(path=dev_label_paths[args.dataset],
+                               args=args, phase='dev')
+        print(dev_data)
+        # dev_sampler = torch.utils.data.distributed.DistributedSampler(dev_data,shuffle=False)
+        dev_sampler = torch.utils.data.SequentialSampler(dev_data)
+        dev_dataloader = DataLoader(dev_data,
+                                    batch_size=args.batch_size,
+                                    num_workers=args.num_workers,
+                                    collate_fn=dev_data.collate_fn,
+                                    sampler=dev_sampler,
+                                    pin_memory=args.pin_mem)
+    else:
+        dev_dataloader = test_dataloader
+
     print(f"Creating model:")
-    model = Uni_Sign(
-                args=args
-                )
+    model = Uni_Sign(args=args)
+
     model.cuda()
     model.train()
     for name, param in model.named_parameters():
@@ -110,7 +112,7 @@ def main(args):
     
     if args.eval:
         if utils.is_main_process():
-            if args.task != "ISLR":
+            if args.task != "ISLR" and "How2Sign" not in args.dataset:
                 print("📄 dev result")
                 evaluate(args, dev_dataloader, model, model_without_ddp, phase='dev')
             print("📄 test result")
@@ -285,7 +287,16 @@ def evaluate(args, data_loader, model, model_without_ddp, phase):
         for k,v in bleu_dict.items():
             metric_logger.meters[k].update(v)
         metric_logger.meters['rouge'].update(rouge_score)
-    
+        if args.eval and (args.dataset == 'How2Sign' or args.dataset == 'OpenASL'):
+            # BLEURT # follow GloFE
+            # Due to the long processing time, only --eval will be executed.
+            from bleurt import score
+            checkpoint = "./BLEURT-20"
+            scorer = score.BleurtScorer(checkpoint)
+            scores_bleurt = scorer.score(references=tgt_refs[:], candidates=tgt_pres[:])
+            # assert isinstance(scores, list) and len(scores) == 1
+            print('BLEURT:', sum(scores_bleurt)/len(scores_bleurt))
+
     elif args.task == "ISLR":
         top1_acc_pi, top1_acc_pc = islr_performance(tgt_refs, tgt_pres)
         metric_logger.meters['top1_acc_pi'].update(top1_acc_pi)

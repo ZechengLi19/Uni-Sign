@@ -281,7 +281,7 @@ def translation_performance(txt_ref, txt_hyp):
     # print('Chrf', chrf(references=txt_ref, hypotheses=txt_hyp))
    
     print(sableu_dict)
-    print(f"Rough: {scores['rouge-l']['f']:.2f}")
+    print(f"Rouge: {scores['rouge-l']['f']:.2f}")
    
     # res = []
     # for n in range(4):

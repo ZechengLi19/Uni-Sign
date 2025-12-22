@@ -420,6 +420,16 @@ class S2T_Dataset(Base_Dataset):
             self.pose_dir = os.path.join(pose_dirs[args.dataset], phase)
             self.rgb_dir = os.path.join(rgb_dirs[args.dataset], phase)
 
+        elif "How2Sign" in self.args.dataset:
+            if phase == 'dev':
+                raise NotImplementedError("How2Sign dev set is not supported")
+            self.pose_dir = pose_dirs[args.dataset].format(phase)
+            self.rgb_dir = os.path.join(rgb_dirs[args.dataset], phase)
+
+        elif "OpenASL" in self.args.dataset:
+            self.pose_dir = pose_dirs[args.dataset].format(phase)
+            self.rgb_dir = os.path.join(rgb_dirs[args.dataset], phase)
+
         else:
             raise NotImplementedError
 
